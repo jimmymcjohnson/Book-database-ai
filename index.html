@@ -54,14 +54,6 @@
             border-color: #8b9aff;
         }
         
-        body.dark-mode .book-item {
-            background: #1a1a2e;
-        }
-        
-        body.dark-mode .book-item:hover {
-            background: #252541;
-        }
-        
         body.dark-mode .book-card {
             background: #2d2d44;
         }
@@ -188,6 +180,11 @@
             transform: translateY(0);
         }
         
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .btn-secondary {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         }
@@ -265,14 +262,6 @@
             justify-content: center;
             color: white;
             font-size: 4em;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .book-preview canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
         }
         
         .book-info {
@@ -402,44 +391,6 @@
             margin-bottom: 10px;
         }
         
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal.show {
-            display: flex;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            max-width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-        }
-        
-        .modal-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            font-size: 1.5em;
-            cursor: pointer;
-            color: #999;
-        }
-        
         .voice-indicator {
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
             color: white;
@@ -485,7 +436,7 @@
         <div class="header">
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">🌙</button>
             <h1>📚 My Book AI Assistant</h1>
-            <p>Your personal library in your pocket</p>
+            <p>Your personal library powered by AI</p>
         </div>
         
         <!-- Stats -->
@@ -510,11 +461,11 @@
                 <input type="file" id="fileInput" accept=".pdf" multiple>
             </div>
             <div style="text-align: center; margin-top: 15px;">
-                <button class="btn" onmouseover="sounds.hover()" onclick="processBooks()">🚀 Process Books</button>
+                <button class="btn" onmouseover="sounds.hover()" onclick="processBooks()" id="uploadBtn">🚀 Process Books</button>
             </div>
         </div>
         
-        <!-- Library Section with Previews -->
+        <!-- Library Section -->
         <div class="card">
             <h2 class="section-title">📚 My Library</h2>
             <div class="library-grid" id="libraryGrid">
@@ -525,7 +476,7 @@
             </div>
         </div>
         
-        <!-- Ask Questions Section with Voice Input -->
+        <!-- Ask Questions Section -->
         <div class="card">
             <h2 class="section-title">💬 Ask Questions</h2>
             
@@ -546,18 +497,19 @@
             </div>
             
             <div style="text-align: center;">
-                <button class="btn" onmouseover="sounds.hover()" onclick="askQuestion()">🔍 Ask</button>
+                <button class="btn" onmouseover="sounds.hover()" onclick="askQuestion()" id="askBtn">🔍 Ask</button>
                 <button class="btn btn-secondary" onmouseover="sounds.hover()" onclick="whichBook()">📚 Find Book About...</button>
             </div>
             
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <p style="margin-top: 10px;">Thinking...</p>
+                <p style="margin-top: 10px;">AI is thinking...</p>
             </div>
             
             <div class="answer-box" id="answerBox">
                 <h3 style="color: #667eea; margin-bottom: 10px;">💡 Answer:</h3>
                 <p id="answerText"></p>
+                <p id="answerSource" style="margin-top: 10px; font-size: 0.9em; color: #999;"></p>
             </div>
         </div>
         
@@ -573,28 +525,15 @@
         </div>
     </div>
     
-    <!-- Book Detail Modal -->
-    <div class="modal" id="bookModal">
-        <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">✕</button>
-            <h2 id="modalBookTitle" style="color: #667eea; margin-bottom: 20px;"></h2>
-            <div id="modalBookPreview" style="margin-bottom: 20px;"></div>
-            <div id="modalBookInfo"></div>
-        </div>
-    </div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-        // PDF.js setup
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // BACKEND URL - YOUR RENDER BACKEND!
+        const BACKEND_URL = 'https://book-ai-backend-1ned.onrender.com';
         
-        // Book database
-        let books = [];
         let questionCount = 0;
         let recognition = null;
         let isListening = false;
         
-        // Sound Effects - Using Web Audio API
+        // Sound Effects
         const sounds = {
             click: () => playBeep(800, 0.1, 0.05),
             success: () => playBeep(1200, 0.15, 0.1),
@@ -605,33 +544,35 @@
             hover: () => playBeep(600, 0.05, 0.03)
         };
         
-        // Play a beep sound
         function playBeep(frequency, duration, volume = 0.1) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = frequency;
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + duration);
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (e) {
+                console.log('Audio not supported');
+            }
         }
         
-        // Play a melody
         function playMelody(frequencies, duration) {
             frequencies.forEach((freq, index) => {
                 setTimeout(() => playBeep(freq, duration, 0.08), index * (duration * 1000));
             });
         }
         
-        // Dark Mode Toggle
+        // Dark Mode
         function toggleTheme() {
             const body = document.body;
             const toggle = document.getElementById('themeToggle');
@@ -649,7 +590,6 @@
             }
         }
         
-        // Load saved theme on startup
         function loadTheme() {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
@@ -658,7 +598,7 @@
             }
         }
         
-        // Initialize speech recognition
+        // Voice Recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -675,9 +615,6 @@
             recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event.error);
                 stopVoiceInput();
-                if (event.error !== 'no-speech') {
-                    alert('Voice input error: ' + event.error);
-                }
             };
             
             recognition.onend = function() {
@@ -685,7 +622,6 @@
             };
         }
         
-        // Toggle voice input
         function toggleVoiceInput() {
             if (!recognition) {
                 alert('Voice input is not supported in your browser. Please use Chrome or Edge.');
@@ -717,52 +653,22 @@
         }
         
         // Update stats
-        function updateStats() {
-            document.getElementById('bookCount').textContent = books.length;
+        async function updateStats() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/books`, {
+                    signal: AbortSignal.timeout(5000) // 5 second timeout
+                });
+                const data = await response.json();
+                
+                document.getElementById('bookCount').textContent = data.total_books || 0;
+            } catch (error) {
+                // Silently fail if backend is sleeping - it will wake up when needed
+                console.log('Backend may be sleeping - will wake up on first use');
+                document.getElementById('bookCount').textContent = '⏳';
+            }
+            
             document.getElementById('questionCount').textContent = questionCount;
         }
-        
-        // Render PDF preview
-        async function renderPDFPreview(file, container) {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                const page = await pdf.getPage(1);
-                
-                const viewport = page.getViewport({ scale: 1 });
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                
-                const scale = 200 / viewport.width;
-                const scaledViewport = page.getViewport({ scale: scale });
-                
-                canvas.width = scaledViewport.width;
-                canvas.height = scaledViewport.height;
-                
-                await page.render({
-                    canvasContext: context,
-                    viewport: scaledViewport
-                }).promise;
-                
-                container.innerHTML = '';
-                container.appendChild(canvas);
-                
-                return canvas.toDataURL();
-            } catch (error) {
-                console.error('Error rendering PDF:', error);
-                container.innerHTML = '📄';
-                return null;
-            }
-        }
-        
-        // Handle file selection
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (files.length > 0) {
-                document.querySelector('.upload-area h3').textContent = 
-                    `${files.length} file(s) selected`;
-            }
-        });
         
         // Process books
         async function processBooks() {
@@ -774,130 +680,96 @@
                 return;
             }
             
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '⏳ Uploading...';
+            
             showLoading();
             sounds.upload();
             
+            let successCount = 0;
+            let errorCount = 0;
+            
             for (let file of files) {
-                // Create temporary container for preview
-                const tempDiv = document.createElement('div');
-                const preview = await renderPDFPreview(file, tempDiv);
-                
-                books.push({
-                    name: file.name,
-                    size: Math.round(file.size / 1024) + ' KB',
-                    chunks: Math.floor(Math.random() * 100) + 50,
-                    preview: preview,
-                    file: file
-                });
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch(`${BACKEND_URL}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                        console.error(`Failed to upload ${file.name}:`, data.error);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    console.error(`Error uploading ${file.name}:`, error);
+                }
             }
             
-            displayLibrary();
             hideLoading();
-            updateStats();
-            sounds.success();
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = '🚀 Process Books';
             
-            alert(`✅ Successfully loaded ${files.length} book(s)!`);
+            if (successCount > 0) {
+                sounds.success();
+                alert(`✅ Successfully loaded ${successCount} book(s)!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+                await loadLibrary();
+                await updateStats();
+            } else {
+                sounds.error();
+                alert('❌ Failed to upload books. Please try again.');
+            }
             
             // Reset file input
             document.getElementById('fileInput').value = '';
             document.querySelector('.upload-area h3').textContent = 'Click to Upload PDF Books';
         }
         
-        // Display library with previews
-        function displayLibrary() {
-            const grid = document.getElementById('libraryGrid');
-            
-            if (books.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state" style="grid-column: 1/-1;">
-                        <div class="empty-icon">📚</div>
-                        <p>No books loaded yet. Upload some PDFs to get started!</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            grid.innerHTML = books.map((book, index) => `
-                <div class="book-card" onclick="showBookDetail(${index})">
-                    <div class="book-preview" id="preview-${index}">
-                        ${book.preview ? '' : '📄'}
-                    </div>
-                    <div class="book-info">
-                        <div class="book-title" title="${book.name}">${book.name}</div>
-                        <div class="book-meta">
-                            <span>${book.size}</span>
-                            <span>${book.chunks} chunks</span>
+        // Load library
+        async function loadLibrary() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/books`);
+                const data = await response.json();
+                
+                const grid = document.getElementById('libraryGrid');
+                
+                if (!data.books || data.books.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1/-1;">
+                            <div class="empty-icon">📚</div>
+                            <p>No books loaded yet. Upload some PDFs to get started!</p>
                         </div>
-                        <div class="book-actions">
-                            <button class="btn" style="padding: 8px;" onmouseover="sounds.hover()" onclick="event.stopPropagation(); askAboutBook(${index})">❓ Ask</button>
-                            <button class="btn btn-secondary" style="padding: 8px;" onmouseover="sounds.hover()" onclick="event.stopPropagation(); removeBook(${index})">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            
-            // Render previews
-            books.forEach((book, index) => {
-                if (book.preview) {
-                    const container = document.getElementById(`preview-${index}`);
-                    if (container) {
-                        const img = document.createElement('img');
-                        img.src = book.preview;
-                        img.style.width = '100%';
-                        img.style.height = '100%';
-                        img.style.objectFit = 'cover';
-                        container.innerHTML = '';
-                        container.appendChild(img);
-                    }
+                    `;
+                    return;
                 }
-            });
-        }
-        
-        // Show book detail
-        function showBookDetail(index) {
-            const book = books[index];
-            document.getElementById('modalBookTitle').textContent = book.name;
-            
-            const previewDiv = document.getElementById('modalBookPreview');
-            if (book.preview) {
-                previewDiv.innerHTML = `<img src="${book.preview}" style="width: 100%; border-radius: 10px;">`;
-            } else {
-                previewDiv.innerHTML = '<div style="font-size: 5em; text-align: center;">📄</div>';
-            }
-            
-            document.getElementById('modalBookInfo').innerHTML = `
-                <p><strong>Size:</strong> ${book.size}</p>
-                <p><strong>Chunks:</strong> ${book.chunks}</p>
-                <div style="margin-top: 20px;">
-                    <button class="btn" onmouseover="sounds.hover()" onclick="askAboutBook(${index}); closeModal();">Ask about this book</button>
-                </div>
-            `;
-            
-            document.getElementById('bookModal').classList.add('show');
-        }
-        
-        function closeModal() {
-            document.getElementById('bookModal').classList.remove('show');
-        }
-        
-        // Ask about specific book
-        function askAboutBook(index) {
-            const book = books[index];
-            document.getElementById('questionInput').value = `Tell me about ${book.name}`;
-            askQuestion();
-        }
-        
-        // Remove book
-        function removeBook(index) {
-            if (confirm('Remove this book from your library?')) {
-                books.splice(index, 1);
-                displayLibrary();
-                updateStats();
+                
+                grid.innerHTML = data.books.map((book, index) => `
+                    <div class="book-card">
+                        <div class="book-preview">📖</div>
+                        <div class="book-info">
+                            <div class="book-title" title="${book.name}">${book.name}</div>
+                            <div class="book-meta">
+                                <span>${book.size}</span>
+                                <span>${book.chunks} chunks</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading library:', error);
             }
         }
         
         // Ask question
-        function askQuestion() {
+        async function askQuestion() {
             const question = document.getElementById('questionInput').value.trim();
             
             if (!question) {
@@ -906,34 +778,37 @@
                 return;
             }
             
-            if (books.length === 0) {
-                sounds.error();
-                alert('Please upload books first!');
-                return;
-            }
-            
             sounds.click();
             showLoading();
             questionCount++;
             updateStats();
             
-            // Simulate AI response
-            setTimeout(() => {
-                const answers = [
-                    `Based on your ${books.length} book(s), the main theme revolves around personal growth and discovery. The characters face challenges that test their resolve and ultimately lead to transformation.`,
-                    `The books in your library explore ${books.length} different perspectives on this topic. Common threads include friendship, courage, and the importance of staying true to oneself.`,
-                    `Across your collection, this question is addressed through various narratives. The answer varies by book, but generally emphasizes the value of perseverance and learning from mistakes.`,
-                    `After analyzing the content, I found that the story centers on overcoming obstacles through creativity and determination. The protagonist's journey mirrors common human experiences of struggle and triumph.`
-                ];
+            try {
+                const response = await fetch(`${BACKEND_URL}/ask`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question })
+                });
                 
-                const randomAnswer = answers[Math.floor(Math.random() * answers.length)];
-                sounds.answer();
-                showAnswer(randomAnswer);
-                hideLoading();
+                const data = await response.json();
                 
-                // Clear input
-                document.getElementById('questionInput').value = '';
-            }, 2000);
+                if (data.success) {
+                    sounds.answer();
+                    showAnswer(data.answer, data.books_used);
+                } else {
+                    sounds.error();
+                    alert('❌ Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                sounds.error();
+                console.error('Error asking question:', error);
+                alert('❌ Failed to get answer. Make sure you\'ve uploaded books!');
+            }
+            
+            hideLoading();
+            document.getElementById('questionInput').value = '';
         }
         
         // Quick question
@@ -943,20 +818,37 @@
         }
         
         // Which book
-        function whichBook() {
+        async function whichBook() {
             const topic = prompt('What topic are you looking for?');
-            if (topic) {
-                showLoading();
-                questionCount++;
-                updateStats();
+            if (!topic) return;
+            
+            showLoading();
+            questionCount++;
+            updateStats();
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/which-book`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ topic })
+                });
                 
-                setTimeout(() => {
-                    const relevantBooks = books.slice(0, Math.min(3, books.length));
-                    const bookNames = relevantBooks.map(b => b.name).join(', ');
-                    showAnswer(`Books about "${topic}":\n\n${bookNames || 'No books found on this topic.'}`);
-                    hideLoading();
-                }, 1500);
+                const data = await response.json();
+                
+                if (data.success && data.results.length > 0) {
+                    const booksList = data.results.map(r => `${r.book} (${r.mentions} mentions)`).join('\n');
+                    showAnswer(`Books about "${topic}":\n\n${booksList}`, data.results.map(r => r.book));
+                } else {
+                    showAnswer(`No books found about "${topic}".`, []);
+                }
+            } catch (error) {
+                console.error('Error finding books:', error);
+                alert('❌ Error finding books');
             }
+            
+            hideLoading();
         }
         
         // Show/hide loading
@@ -970,23 +862,34 @@
         }
         
         // Show answer
-        function showAnswer(text) {
+        function showAnswer(text, books) {
             document.getElementById('answerText').textContent = text;
+            if (books && books.length > 0) {
+                document.getElementById('answerSource').textContent = `📚 Sources: ${books.join(', ')}`;
+            } else {
+                document.getElementById('answerSource').textContent = '';
+            }
             document.getElementById('answerBox').classList.add('show');
         }
         
         // Clear all
-        function clearAll() {
-            if (confirm('This will remove all books and reset your library. Continue?')) {
+        async function clearAll() {
+            if (confirm('This will remove all books from the server. Continue?')) {
                 sounds.click();
-                books = [];
-                questionCount = 0;
-                displayLibrary();
-                updateStats();
-                document.getElementById('answerBox').classList.remove('show');
-                document.getElementById('questionInput').value = '';
-                sounds.success();
-                alert('✅ Library cleared!');
+                try {
+                    await fetch(`${BACKEND_URL}/clear`, { method: 'POST' });
+                    questionCount = 0;
+                    await loadLibrary();
+                    await updateStats();
+                    document.getElementById('answerBox').classList.remove('show');
+                    document.getElementById('questionInput').value = '';
+                    sounds.success();
+                    alert('✅ Library cleared!');
+                } catch (error) {
+                    sounds.error();
+                    console.error('Error clearing:', error);
+                    alert('❌ Error clearing library');
+                }
             } else {
                 sounds.error();
             }
@@ -995,6 +898,7 @@
         // Initialize
         loadTheme();
         updateStats();
+        loadLibrary();
     </script>
 </body>
 </html>
