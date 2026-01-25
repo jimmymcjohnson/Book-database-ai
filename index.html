@@ -476,51 +476,43 @@
             </div>
         </div>
         
-       // Ask question
-async function askQuestion() {
-    const questionInput = document.getElementById('questionInput');
-    const question = questionInput.value.trim();
-    
-    if (!question) {
-        sounds.error();
-        alert('Please enter a question or use voice input!');
-        return;
-    }
-    
-    // CLEAR INPUT IMMEDIATELY
-    questionInput.value = '';
-    
-    sounds.click();
-    showLoading();
-    questionCount++;
-    updateStats();
-    
-    try {
-        const response = await fetch(`${BACKEND_URL}/ask`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ question: question })  // Use the saved question variable
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            sounds.answer();
-            showAnswer(data.answer, data.books_used);
-        } else {
-            sounds.error();
-            alert('❌ Error: ' + (data.error || 'Unknown error'));
-        }
-    } catch (error) {
-        sounds.error();
-        console.error('Error asking question:', error);
-        alert('❌ Failed to get answer. Make sure you\'ve uploaded books!');
-    }
-    
-    hideLoading();
-}
+           <!-- Ask Questions Section -->
+        <div class="card">
+            <h2 class="section-title">💬 Ask Questions</h2>
+            
+            <div class="voice-indicator" id="voiceIndicator">
+                <span>🎤</span>
+                <span>Listening... Speak now!</span>
+            </div>
+            
+            <div class="search-container">
+                <input type="text" 
+                       class="search-box" 
+                       id="questionInput" 
+                       placeholder="What would you like to know about your books?"
+                       onkeypress="if(event.key==='Enter') askQuestion()">
+                <button class="btn-voice" id="voiceBtn" onclick="toggleVoiceInput()" title="Voice Input">
+                    🎤
+                </button>
+            </div>
+            
+            <div style="text-align: center;">
+                <button class="btn" onmouseover="sounds.hover()" onclick="askQuestion()" id="askBtn">🔍 Ask</button>
+                <button class="btn btn-secondary" onmouseover="sounds.hover()" onclick="whichBook()">📚 Find Book About...</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">AI is thinking...</p>
+            </div>
+            
+            <div class="answer-box" id="answerBox">
+                <h3 style="color: #667eea; margin-bottom: 10px;">💡 Answer:</h3>
+                <p id="answerText"></p>
+                <p id="answerSource" style="margin-top: 10px; font-size: 0.9em; color: #999;"></p>
+            </div>
+        </div>
+
         <!-- Quick Actions -->
         <div class="card">
             <h2 class="section-title">⚡ Quick Actions</h2>
@@ -776,48 +768,51 @@ async function askQuestion() {
             }
         }
         
-        // Ask question
-        async function askQuestion() {
-            const question = document.getElementById('questionInput').value.trim();
-            
-            if (!question) {
-                sounds.error();
-                alert('Please enter a question or use voice input!');
-                return;
-            }
-            
-            sounds.click();
-            showLoading();
-            questionCount++;
-            updateStats();
-            
-            try {
-                const response = await fetch(`${BACKEND_URL}/ask`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ question })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    sounds.answer();
-                    showAnswer(data.answer, data.books_used);
-                } else {
-                    sounds.error();
-                    alert('❌ Error: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                sounds.error();
-                console.error('Error asking question:', error);
-                alert('❌ Failed to get answer. Make sure you\'ve uploaded books!');
-            }
-            
-            hideLoading();
-            document.getElementById('questionInput').value = '';
+           // Ask question
+async function askQuestion() {
+    const questionInput = document.getElementById('questionInput');
+    const question = questionInput.value.trim();
+    
+    if (!question) {
+        sounds.error();
+        alert('Please enter a question or use voice input!');
+        return;
+    }
+    
+    // CLEAR INPUT IMMEDIATELY
+    questionInput.value = '';
+    
+    sounds.click();
+    showLoading();
+    questionCount++;
+    updateStats();
+    
+    try {
+        const response = await fetch(`${BACKEND_URL}/ask`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ question: question })  // Use the saved question variable
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            sounds.answer();
+            showAnswer(data.answer, data.books_used);
+        } else {
+            sounds.error();
+            alert('❌ Error: ' + (data.error || 'Unknown error'));
         }
+    } catch (error) {
+        sounds.error();
+        console.error('Error asking question:', error);
+        alert('❌ Failed to get answer. Make sure you\'ve uploaded books!');
+    }
+    
+    hideLoading();
+}
         
         // Quick question
         function quickQuestion(question) {
